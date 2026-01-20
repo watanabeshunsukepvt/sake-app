@@ -36,7 +36,7 @@ label {
   margin-top: 12px;
   font-weight: bold;
 }
-input, select, textarea {
+input, select {
   width: 100%;
   padding: 10px;
   margin-top: 6px;
@@ -53,6 +53,9 @@ button {
   font-weight: bold;
   background: #2d7ff9;
   color: #fff;
+}
+button:disabled {
+  opacity: 0.6;
 }
 .log {
   background: #fafafa;
@@ -101,7 +104,7 @@ small {
     <option value="5">絶対また飲む</option>
   </select>
 
-  <label>🍬 印象は？（甘辛ではなく）</label>
+  <label>🍬 印象は？</label>
   <select id="impression">
     <option value="-1">キレがある</option>
     <option value="0" selected>バランス型</option>
@@ -109,7 +112,6 @@ small {
   </select>
 
   <button id="saveBtn" onclick="save()">記録する</button>
-
 </div>
 
 <div class="card">
@@ -125,9 +127,7 @@ small {
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-  let saving = false;
-
-/* 🔥 Firebase設定（ここを書き換える） */
+/* 🔥 Firebase設定（あなたのものに差し替え済み） */
 const firebaseConfig = {
   apiKey: "AIzaSyAxxxxx",
   authDomain: "ichigo-ichie-f4c9c.firebaseapp.com",
@@ -135,18 +135,13 @@ const firebaseConfig = {
   projectId: "ichigo-ichie-f4c9c"
 };
 
-  apiKey: "YOUR_API_KEY",
-  authDomain: "xxxx.firebaseapp.com",
-  databaseURL: "https://xxxx.firebasedatabase.app",
-  projectId: "xxxx"
-};
-
 firebase.initializeApp(firebaseConfig);
 firebase.auth().signInAnonymously();
 
 const db = firebase.database();
-
 let currentUID = null;
+let saving = false;
+
 firebase.auth().onAuthStateChanged(user => {
   if (user) {
     currentUID = user.uid;
@@ -154,7 +149,7 @@ firebase.auth().onAuthStateChanged(user => {
   }
 });
 
-/* 画像を圧縮してBase64化 */
+/* 画像圧縮 */
 function compressImage(file, callback) {
   const img = new Image();
   const reader = new FileReader();
@@ -173,15 +168,8 @@ function compressImage(file, callback) {
   reader.readAsDataURL(file);
 }
 
+/* 保存処理（ボタンロック付き） */
 function save() {
-  function resetSaveButton() {
-  saving = false;
-  const btn = document.getElementById("saveBtn");
-  btn.disabled = false;
-  btn.textContent = "記録する";
-}
-
-  // 二重送信防止
   if (saving) return;
   saving = true;
 
@@ -190,17 +178,14 @@ function save() {
   btn.textContent = "保存中...";
 
   const file = imageInput.files[0];
-
   if (!file || !currentUID) {
     alert("画像を選択してください");
-    resetSaveButton();
+    resetButton();
     return;
   }
 
   compressImage(file, imageData => {
-    const ref = db.ref("users/" + currentUID + "/logs").push();
-
-    ref.set({
+    db.ref("users/" + currentUID + "/logs").push({
       name: name.value || "名称未記録",
       openedDays: openedDays.value,
       like: like.value,
@@ -209,32 +194,24 @@ function save() {
       date: new Date().toLocaleDateString()
     })
     .then(() => {
-      resetSaveButton();
       imageInput.value = "";
+      resetButton();
     })
     .catch(err => {
-      alert("保存に失敗しました：" + err.message);
-      resetSaveButton();
+      alert("保存失敗：" + err.message);
+      resetButton();
     });
   });
 }
 
-  const file = imageInput.files[0];
-  if (!file || !currentUID) return alert("画像を選択してください");
-
-  compressImage(file, imageData => {
-    const ref = db.ref("users/" + currentUID + "/logs").push();
-    ref.set({
-      name: name.value || "名称未記録",
-      openedDays: openedDays.value,
-      like: like.value,
-      impression: impression.value,
-      image: imageData,
-      date: new Date().toLocaleDateString()
-    });
-  });
+function resetButton() {
+  saving = false;
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = false;
+  btn.textContent = "記録する";
 }
 
+/* 読み込み */
 function loadLogs() {
   db.ref("users/" + currentUID + "/logs").on("value", snap => {
     logs.innerHTML = "";
@@ -244,8 +221,8 @@ function loadLogs() {
       div.className = "log";
       div.innerHTML = `
         <strong>${l.name}</strong><br>
-        ⭐️ ${l.like} / 5　
-        📅 開封 ${l.openedDays} 日目<br>
+        ⭐️ ${l.like}/5　
+        📅 ${l.openedDays}日目<br>
         🍬 ${["キレ","バランス","ふくよか"][Number(l.impression)+1]}<br>
         <small>${l.date}</small>
         <img src="${l.image}">
