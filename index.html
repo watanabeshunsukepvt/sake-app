@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>一合一会</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ffffff">
+
+<style>
+body {
+  margin: 0;
+  background: #f5f6f8;
+  font-family: system-ui, sans-serif;
+  color: #333;
+}
+header {
+  background: white;
+  padding: 16px;
+  font-size: 20px;
+  font-weight: bold;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+main {
+  max-width: 640px;
+  margin: auto;
+  padding: 16px;
+}
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+label {
+  display: block;
+  margin: 12px 0 6px;
+  font-weight: bold;
+}
+input[type=text], input[type=date], select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+button {
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  font-size: 16px;
+  font-weight: bold;
+  background: #2d7ff9;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+button.delete {
+  background: #eee;
+  color: #333;
+  font-size: 14px;
+  margin-top: 8px;
+}
+.log {
+  background: #fafafa;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.stars {
+  color: #f5a623;
+}
+img.label {
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+.best {
+  color: #d97706;
+  font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+<header>🍶 一合一会</header>
+
+<main>
+
+<div class="card">
+  <label>🍶 日本酒名</label>
+  <input id="nameInput" type="text">
+
+  <label>📷 ラベル写真</label>
+  <input id="imageInput" type="file" accept="image/*" capture="environment">
+
+  <label>🗓 開封日</label>
+  <input id="openDateInput" type="date">
+
+  <label>❓ また飲みたい？</label>
+  <select id="likeSelect">
+    <option value="1">もう飲まない</option>
+    <option value="2">微妙</option>
+    <option value="3" selected>普通</option>
+    <option value="4">また飲みたい</option>
+    <option value="5">絶対また飲む</option>
+  </select>
+
+  <label>🌡 飲み方</label>
+  <select id="temperatureSelect">
+    <option>冷</option>
+    <option>常温</option>
+    <option>燗</option>
+  </select>
+
+  <label>🍽 合った料理</label>
+  <select id="foodSelect">
+    <option>魚</option>
+    <option>肉</option>
+    <option>和食</option>
+    <option>チーズ</option>
+    <option>単体</option>
+  </select>
+
+  <details>
+    <summary>▼ 味の詳細（任意）</summary>
+
+    <label>🥛 飲みやすさ</label>
+    <select id="waterLikeSelect">
+      <option value="-2">水みたい</option>
+      <option value="-1">軽い</option>
+      <option value="0" selected>普通</option>
+      <option value="1">しっかり</option>
+      <option value="2">濃厚</option>
+    </select>
+
+    <label>🔪 キレ・余韻</label>
+    <select id="finishSelect">
+      <option value="-1">キレがある</option>
+      <option value="0" selected>中間</option>
+      <option value="1">余韻が残る</option>
+    </select>
+
+    <label>🍋 酸味</label>
+    <select id="aciditySelect">
+      <option value="-1">控えめ</option>
+      <option value="0" selected>普通</option>
+      <option value="1">強め</option>
+    </select>
+
+    <label>🌸 香り</label>
+    <select id="aromaSelect">
+      <option value="-1">穏やか</option>
+      <option value="0" selected>中間</option>
+      <option value="1">華やか</option>
+    </select>
+  </details>
+
+  <button id="saveButton">記録する</button>
+</div>
+
+<div class="card">
+  <h3>これまでの記録</h3>
+  <div id="logs"></div>
+</div>
+
+</main>
+
+<script>
+const STORAGE_KEY = "sake_logs_final";
+
+const dom = {
+  name: document.getElementById("nameInput"),
+  image: document.getElementById("imageInput"),
+  openDate: document.getElementById("openDateInput"),
+  like: document.getElementById("likeSelect"),
+  temperature: document.getElementById("temperatureSelect"),
+  food: document.getElementById("foodSelect"),
+  waterLike: document.getElementById("waterLikeSelect"),
+  finish: document.getElementById("finishSelect"),
+  acidity: document.getElementById("aciditySelect"),
+  aroma: document.getElementById("aromaSelect"),
+  save: document.getElementById("saveButton"),
+  logs: document.getElementById("logs")
+};
+
+const loadLogs = () =>
+  JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+
+const saveLogs = logs =>
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+
+const readImage = file =>
+  new Promise(r => {
+    if (!file) return r(null);
+    const reader = new FileReader();
+    reader.onload = () => r(reader.result);
+    reader.readAsDataURL(file);
+  });
+
+const daysAfter = (open, record) =>
+  open ? Math.floor((new Date(record) - new Date(open)) / 86400000) : null;
+
+function bestDayMap(logs) {
+  const map = {};
+  logs.forEach(l => {
+    if (!l.openDate) return;
+    const d = daysAfter(l.openDate, l.date);
+    if (d == null) return;
+    if (!map[l.name] || l.like > map[l.name].like) {
+      map[l.name] = { day: d, like: l.like };
+    }
+  });
+  return map;
+}
+
+function render() {
+  const logs = loadLogs();
+  const best = bestDayMap(logs);
+  dom.logs.innerHTML = "";
+
+  logs.forEach(l => {
+    const d = daysAfter(l.openDate, l.date);
+    const isBest = best[l.name] && best[l.name].like === l.like;
+
+    const div = document.createElement("div");
+    div.className = "log";
+    div.innerHTML = `
+      ${l.image ? `<img class="label" src="${l.image}">` : ""}
+      <strong>${l.name}</strong><br>
+      <span class="stars">${"★".repeat(l.like)}${"☆".repeat(5-l.like)}</span><br>
+      ${d !== null ? `<small>開封後 ${d}日</small><br>` : ""}
+      ${isBest ? `<div class="best">🌟 ベスト：開封後${best[l.name].day}日目</div>` : ""}
+      🌡 ${l.temperature}　🍽 ${l.food}<br>
+      <small>
+        飲みやすさ:${l.taste.waterLike} /
+        キレ・余韻:${l.taste.finish} /
+        酸味:${l.taste.acidity} /
+        香り:${l.taste.aroma}
+      </small><br>
+      <button class="delete">削除</button>
+    `;
+    div.querySelector("button").onclick = () => {
+      saveLogs(loadLogs().filter(x => x.id !== l.id));
+      render();
+    };
+    dom.logs.appendChild(div);
+  });
+}
+
+dom.save.onclick = async () => {
+  if (!dom.name.value.trim()) return alert("日本酒名を入力してください");
+
+  const log = {
+    id: Date.now(),
+    name: dom.name.value.trim(),
+    image: await readImage(dom.image.files[0]),
+    openDate: dom.openDate.value || null,
+    like: Number(dom.like.value),
+    temperature: dom.temperature.value,
+    food: dom.food.value,
+    taste: {
+      waterLike: Number(dom.waterLike.value),
+      finish: Number(dom.finish.value),
+      acidity: Number(dom.acidity.value),
+      aroma: Number(dom.aroma.value)
+    },
+    date: new Date().toISOString()
+  };
+
+  const logs = loadLogs();
+  logs.unshift(log);
+  saveLogs(logs);
+  dom.name.value = "";
+  dom.image.value = "";
+  render();
+};
+
+render();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
+}
+</script>
+
+</body>
+</html>
