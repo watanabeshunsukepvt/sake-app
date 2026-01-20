@@ -108,7 +108,8 @@ small {
     <option value="1">ふくよか</option>
   </select>
 
-  <button onclick="save()">記録する</button>
+  <button id="saveBtn" onclick="save()">記録する</button>
+
 </div>
 
 <div class="card">
@@ -124,6 +125,8 @@ small {
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
+  let saving = false;
+
 /* 🔥 Firebase設定（ここを書き換える） */
 const firebaseConfig = {
   apiKey: "AIzaSyAxxxxx",
@@ -171,6 +174,51 @@ function compressImage(file, callback) {
 }
 
 function save() {
+  function resetSaveButton() {
+  saving = false;
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = false;
+  btn.textContent = "記録する";
+}
+
+  // 二重送信防止
+  if (saving) return;
+  saving = true;
+
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = true;
+  btn.textContent = "保存中...";
+
+  const file = imageInput.files[0];
+
+  if (!file || !currentUID) {
+    alert("画像を選択してください");
+    resetSaveButton();
+    return;
+  }
+
+  compressImage(file, imageData => {
+    const ref = db.ref("users/" + currentUID + "/logs").push();
+
+    ref.set({
+      name: name.value || "名称未記録",
+      openedDays: openedDays.value,
+      like: like.value,
+      impression: impression.value,
+      image: imageData,
+      date: new Date().toLocaleDateString()
+    })
+    .then(() => {
+      resetSaveButton();
+      imageInput.value = "";
+    })
+    .catch(err => {
+      alert("保存に失敗しました：" + err.message);
+      resetSaveButton();
+    });
+  });
+}
+
   const file = imageInput.files[0];
   if (!file || !currentUID) return alert("画像を選択してください");
 
