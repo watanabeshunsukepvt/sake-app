@@ -158,14 +158,14 @@ function compressImage(file, callback) {
   reader.onload = e => img.src = e.target.result;
   img.onload = () => {
     const canvas = document.createElement("canvas");
-    const max = 800;
+    const max = 600;
     let w = img.width, h = img.height;
     if (w > h && w > max) { h *= max / w; w = max; }
     else if (h > max) { w *= max / h; h = max; }
     canvas.width = w;
     canvas.height = h;
     canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-    callback(canvas.toDataURL("image/webp", 0.6));
+    callback(canvas.toDataURL("image/webp", 0.45));
   };
   reader.readAsDataURL(file);
 }
